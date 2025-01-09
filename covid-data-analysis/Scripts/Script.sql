@@ -79,4 +79,82 @@ order by 1,2
 select location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as death_percentage
 from coviddeaths
 where location like '%States%'
-order by 1,2;
+order by 1,2
+
+-- total cases vs population: shows what percentage of population got covid
+select location, date, population, total_cases, (total_cases/population)*100 as percent_population_infected
+from coviddeaths
+order by 1,2
+
+-- countries with highest infection rate vs population
+select location, population, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 
+	as percent_population_infected
+from coviddeaths
+where total_cases is not null and population is not null
+group by location, population
+order by percent_population_infected desc
+
+-- countries with highest death count per population
+select location, MAX(cast(total_deaths as int)) as total_death_count
+from coviddeaths
+where total_deaths is not null and continent <> ''
+group by location
+order by total_death_count desc
+
+-- breaking down by continent: continents with highest death count
+select location, MAX(cast(total_deaths as int)) as total_death_count
+from coviddeaths
+where continent = ''
+group by location
+order by total_death_count desc
+
+-- global numbers
+select date, SUM(new_cases) as total_cases, SUM(new_deaths) as total_deaths, SUM(new_deaths)/SUM(new_cases)*100 as death_percentage--total_deaths, (total_deaths/total_cases)*100 as death_percentage
+from coviddeaths
+where continent <> ''
+group by date
+order by 1,2
+
+-- total population vs vaccinations
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+	SUM(vac.new_vaccinations) over (partition by dea.location order by dea.location, dea.date)
+	as rolling_people_vaccinated
+from coviddeaths dea
+join covidvaccinations vac
+	on dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent <> ''
+order by 2,3
+
+-- use cte
+with pop_vs_vac (continent, location, date, population, new_vaccinations, rolling_people_vaccinated)
+as
+	(
+	select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+		SUM(vac.new_vaccinations) over (partition by dea.location order by dea.location, dea.date)
+		as rolling_people_vaccinated
+	from coviddeaths dea
+	join covidvaccinations vac
+		on dea.location = vac.location
+		and dea.date = vac.date
+	where dea.continent <> ''
+	--order by 2,3
+	)
+select *, (rolling_people_vaccinated/population)*100
+from pop_vs_vac
+
+-- creating view to store data for later visualizations
+/*
+create view percent_pop_vaccinated as
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+	SUM(vac.new_vaccinations) over (partition by dea.location order by dea.location, dea.date)
+	as rolling_people_vaccinated
+from coviddeaths dea
+join covidvaccinations vac
+	on dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent <> ''
+--order by 2,3
+*/
+
+select * from percent_pop_vaccinated
