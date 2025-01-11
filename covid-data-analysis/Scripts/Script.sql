@@ -171,7 +171,7 @@ order by 1,2
 -- 2.
 select location, SUM(new_deaths) as TotalDeathCount
 from coviddeaths
-where continent <> '' 
+where continent = '' 
 and location not in ('World', 'European Union', 'International')
 group by location
 order by TotalDeathCount desc
